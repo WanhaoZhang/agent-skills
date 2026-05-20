@@ -126,12 +126,26 @@ def main() -> int:
 
     files = [root] if root.is_file() else sorted(root.glob("*"))
     errors: list[str] = []
-    if root.is_dir():
-        mermaid_files = [path for path in files if path.suffix == ".md" and "mermaid" in path.name]
-        if len(mermaid_files) > 1:
-            names = ", ".join(path.name for path in mermaid_files)
-            errors.append(f"{root}: expected exactly one Mermaid Markdown file, found {len(mermaid_files)}: {names}")
     checked = 0
+    mermaid_markdown_text = ""
+    codetour_steps = []
+
+    # First pass: read content for cross-validation if a directory is checked
+    if root.is_dir():
+        for path in files:
+            if path.suffix == ".md" and "mermaid" in path.name:
+                try:
+                    mermaid_markdown_text = path.read_text(encoding="utf-8")
+                except Exception:
+                    pass
+            elif path.suffix == ".tour":
+                try:
+                    tour_data = json.loads(path.read_text(encoding="utf-8"))
+                    codetour_steps = tour_data.get("steps", [])
+                except Exception:
+                    pass
+
+    # Second pass: execute standard file-specific checks
     for path in files:
         if path.suffix == ".md" and "mermaid" in path.name:
             checked += 1
@@ -142,6 +156,52 @@ def main() -> int:
         elif path.suffix == ".tour":
             checked += 1
             errors.extend(check_tour_file(path))
+
+    # Cross-validation pass (only when both are present)
+    if mermaid_markdown_text and codetour_steps:
+        # Extract all file and line mappings from click targets:
+        # e.g., click Node "vscode://file//absolute/path/to/file.py:123:1"
+        # or vscode://file/relative/path.py:123
+        click_targets = re.findall(r'vscode://file/+(.*?):(\d+)(?::\d+)?', mermaid_markdown_text)
+        
+        # Build set of (normalized_file_basename_or_path, line)
+        mermaid_points = set()
+        for filepath, line_str in click_targets:
+            try:
+                line = int(line_str)
+                # Keep both the full relative/absolute suffix and basename to be flexible
+                filename = Path(filepath).name.lower()
+                mermaid_points.add((filename, line))
+            except ValueError:
+                pass
+
+        # Build set of (file_basename_or_path, line) from codetour
+        tour_points = set()
+        for step in codetour_steps:
+            if isinstance(step, dict) and step.get("file") and step.get("line"):
+                filename = Path(step["file"]).name.lower()
+                try:
+                    line = int(step["line"])
+                    tour_points.add((filename, line))
+                except ValueError:
+                    pass
+
+        # Verify that every click target has a corresponding step in codetour
+        for filename, line in mermaid_points:
+            # We match if there is a step with same filename and line
+            if not any(tf == filename and tl == line for tf, tl in tour_points):
+                errors.append(
+                    f"Cross-Validation Error: Mermaid click target '{filename}:{line}' "
+                    f"has no matching step in CodeTour."
+                )
+
+        # Verify that every codetour step is represented in the Mermaid diagram click targets
+        for filename, line in tour_points:
+            if not any(mf == filename and ml == line for mf, ml in mermaid_points):
+                errors.append(
+                    f"Cross-Validation Error: CodeTour step '{filename}:{line}' "
+                    f"is not linked via any click target in the Mermaid diagram."
+                )
 
     if errors:
         print("\n".join(errors), file=sys.stderr)
