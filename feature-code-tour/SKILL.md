@@ -13,7 +13,6 @@ Create a reusable implementation walkthrough from real code, not a guessed archi
   - A main clickable flowchart that shows the end-to-end stages first, with `subgraph` blocks grouping each stage.
   - One detailed clickable subflowchart per stage in the same Markdown file.
   - A Chinese execution-flow analysis section after each stage subflowchart.
-- One same-basename HTML export for that Mermaid Markdown file.
 - One CodeTour `.tour` JSON file.
 - Optional short report files when the user asks for deeper explanation.
 
@@ -23,7 +22,6 @@ Use generated-by naming for required artifacts:
 
 ```text
 .tour/<tool>-<model>-<feature>-YYYYMMDD_mermaid.md
-.tour/<tool>-<model>-<feature>-YYYYMMDD_mermaid.html
 .tour/<tool>-<model>-<feature>-YYYYMMDD_codetour.tour
 ```
 
@@ -43,6 +41,9 @@ When available, use `/Users/zhangwh/Documents/ObsidianBlogs/ZWHNotes/技术博�
 2. Read the implementation path from source.
    - Start from user-facing entry points, tests, or examples.
    - Follow the call chain through dispatch, matching/lowering, codegen/template, runtime wrapper, kernel/runtime, and output.
+   - For generated, multi-language, framework-driven, or staged systems, analyze every handoff boundary: the producer side that interprets user intent, builds an intermediate model, transforms it, or emits artifacts, and the consumer side that turns those artifacts into actual execution and output.
+   - Do not stop at an example, wrapper, generated file, or runtime entry until you have checked whether an upstream generator/lowering layer or downstream executor/scheduler layer also participates.
+   - When a stage contains loops, partitioning, caches, queues, buffers, callbacks/handlers, async work, event synchronization, staged pipelines, or multi-worker execution, expand that logic as its own detailed stage with source-backed nodes.
    - Use `rg` first for symbols and `sed -n`/`nl -ba` for local context.
    - Record what each stage does, what it consumes, what it produces, and the concrete file paths and line numbers that prove it.
 
@@ -52,6 +53,7 @@ When available, use `/Users/zhangwh/Documents/ObsidianBlogs/ZWHNotes/技术博�
    - Before the main graph, add a short Chinese overview explaining what the feature path does and which side of the system each major component owns.
    - First include `## 整体调用链路` and the main flowchart.
    - The main flowchart must be more detailed than a flat stage list: use `subgraph` blocks for major stages such as API 入口、追踪建模、编译 lowering、后端选择、模板生成、运行时执行、反向链路、输出。
+   - If the feature crosses a producer/consumer or generator/executor boundary, the main flowchart must show both halves explicitly, for example input capture, intermediate representation, transformation passes, artifact rendering, parameter conversion, scheduling, execution, and output.
    - Put 2-4 Chinese natural-language nodes inside each main-flow `subgraph` so readers can see what each stage does at a glance.
    - Node text must use Chinese natural language only; do not put function names, file paths, or line numbers inside node labels.
    - Keep code locations only in `click NODE "vscode://file/<absolute-path>:<line>:1"` statements and in the CodeTour JSON.
@@ -62,7 +64,8 @@ When available, use `/Users/zhangwh/Documents/ObsidianBlogs/ZWHNotes/技术博�
    - Each subflowchart should expand exactly one main-flow stage.
    - Each node must use Chinese to say what happens, why it matters, and what data/control object moves forward.
    - Do not include code symbols, file paths, or line numbers in Mermaid node labels.
-   - Include branch conditions, fallback paths, generated artifacts, cached data, and output tensors/objects when relevant.
+   - Include branch conditions, fallback paths, generated artifacts, cached data, resource/state layout, handler or callback state, synchronization events, and output tensors/objects when relevant.
+   - For runtime or executor stages, do not compress complex implementation into a single “run” node. Split the real source structure into loop boundaries, partition decisions, state/buffer rotation, scheduling or synchronization points, and the concrete per-phase operations.
    - Add `click NODE "vscode://file/<absolute-path>:<line>:1"` for every source-backed node, keeping the diagram visual text code-free.
    - Label branch edges with Chinese labels such as `是`/`否`; make fallback branches explicit terminal nodes when not expanded.
    - Preserve the same stage node id prefix used in the main flow when practical, so readers can map overview nodes to detail diagrams.
@@ -75,22 +78,12 @@ When available, use `/Users/zhangwh/Documents/ObsidianBlogs/ZWHNotes/技术博�
    - Keep labels concise but explanatory; split long text with `<br/>`.
    - Follow the `beautiful-mermaid` spirit: restrained colors, clear grouping, readable spacing, and no decorative clutter.
 
-6. Export matching HTML for the Mermaid Markdown file.
-   - Use the bundled exporter:
-
-```bash
-python3 .agents/skills/feature-code-tour/scripts/export_mermaid_html.py .tour
-```
-
-   - The exporter creates the same-basename `.html` file next to `<tool>-<model>-<feature>-YYYYMMDD_mermaid.md`.
-   - If the skill is installed at another path, run the script from that installed skill directory instead.
-
-7. Build the CodeTour JSON.
+6. Build the CodeTour JSON.
    - Use `.tour/<tool>-<model>-<feature>-YYYYMMDD_codetour.tour`.
    - Keep steps in execution order.
    - Each step should contain a relative `file`, 1-based `line`, and a short Chinese natural-language description of what that code does in the feature path.
 
-8. Validate artifacts.
+7. Validate artifacts.
    - Run the bundled checker:
 
 ```bash
@@ -99,7 +92,7 @@ python3 .agents/skills/feature-code-tour/scripts/check_feature_tour.py .tour
 
    - Fix reported Mermaid compatibility issues before handing off.
 
-9. Commit only requested artifacts when the user asks to commit or push.
+8. Commit only requested artifacts when the user asks to commit or push.
    - Stage `.tour/` artifacts explicitly.
    - Avoid unrelated local files such as `.DS_Store`.
    - Mention untracked or intentionally ignored files.

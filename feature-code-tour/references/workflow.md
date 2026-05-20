@@ -23,9 +23,17 @@ When comparing feature commits, collect:
 - Codegen/template files.
 - Runtime wrapper files.
 - Kernel/runtime files.
+- Executor internals: loops, partitioning, buffers, queues, caches, callback/handler construction, async/event synchronization, staged pipelines, worker coordination, and output commits.
 - Validation scripts and reports.
 
 For every stage, capture what it consumes, what it changes, what it emits, and which source lines prove that behavior.
+
+For generated, multi-language, framework-driven, or staged systems, always split the analysis across every producer/consumer boundary:
+
+- Producer side: user intent capture, parsing/tracing/config interpretation, intermediate model or graph construction, transformation passes, lowering, artifact rendering, generated arguments, and generated files or metadata.
+- Consumer side: parameter conversion, resource planning, launch path, scheduler or runtime selection, worker/kernel/runtime execution, loops, state/buffer/cache management, callbacks/handlers, synchronization, staged phases, and final output.
+
+Do not stop at generated files, examples, wrappers, or entry-point code until you have checked whether an upstream producer or downstream executor also participates.
 
 ## Style Reference
 
@@ -40,13 +48,12 @@ Do not copy its older pattern of putting code paths inside node labels. Generate
 
 ## Output Naming
 
-Emit exactly one Mermaid Markdown file, one same-basename HTML file, and one CodeTour JSON file under the target project's root `.tour/` directory unless the user explicitly asks for extra reports. Resolve the root with `git rev-parse --show-toplevel` when available; otherwise use the current working directory.
+Emit exactly one Mermaid Markdown file and one CodeTour JSON file under the target project's root `.tour/` directory unless the user explicitly asks for extra reports or another artifact. Resolve the root with `git rev-parse --show-toplevel` when available; otherwise use the current working directory.
 
 Use a filename that displays the tool, model, analyzed feature, and generation date:
 
 ```text
 .tour/<tool>-<model>-<feature>-YYYYMMDD_mermaid.md
-.tour/<tool>-<model>-<feature>-YYYYMMDD_mermaid.html
 .tour/<tool>-<model>-<feature>-YYYYMMDD_codetour.tour
 ```
 
@@ -258,16 +265,6 @@ After every detailed stage subflowchart, write:
 
 Keep this analysis grounded in the source lines discovered earlier. Mention code locations in prose only when useful; the Mermaid visual nodes should stay code-free.
 
-## HTML Export
-
-After writing or updating the Mermaid Markdown file, export its matching HTML file:
-
-```bash
-python3 .agents/skills/feature-code-tour/scripts/export_mermaid_html.py .tour
-```
-
-The exporter accepts either a directory or a single Markdown file. For the one `*_mermaid.md`, it writes a same-basename `.html` file that embeds Mermaid.js, keeps clickable links, and uses a restrained theme inspired by the clear spacing and themeability of `beautiful-mermaid`.
-
 ## Mermaid Compatibility Checklist
 
 Run this mental checklist before finishing:
@@ -283,7 +280,6 @@ Run this mental checklist before finishing:
 - `doc_id(q)` style labels are safer than `doc_id[q]` in Mermaid labels.
 - Click targets use absolute paths and line numbers.
 - There is exactly one `*_mermaid.md` file for the feature request.
-- That Mermaid Markdown file has a same-basename `.html` export.
 - Mermaid node labels use Chinese natural language only and do not contain function names, file paths, or line numbers.
 - Every detailed stage section includes `### 执行流程分析` prose after its Mermaid block.
 
@@ -293,7 +289,7 @@ When committing:
 
 ```bash
 git status --short
-git add .tour/<tool>-<model>-<feature>-YYYYMMDD_mermaid.md .tour/<tool>-<model>-<feature>-YYYYMMDD_mermaid.html .tour/<tool>-<model>-<feature>-YYYYMMDD_codetour.tour
+git add .tour/<tool>-<model>-<feature>-YYYYMMDD_mermaid.md .tour/<tool>-<model>-<feature>-YYYYMMDD_codetour.tour
 git diff --cached --stat
 git commit -m "docs: add <feature> code tour"
 git push origin <branch>

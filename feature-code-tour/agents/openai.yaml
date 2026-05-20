@@ -1,4 +1,4 @@
 interface:
   display_name: "Feature Code Tour"
-  short_description: "Map feature diffs into one detailed Mermaid, HTML, and CodeTour"
-  default_prompt: "Use $feature-code-tour to compare commits and generate one natural-language Mermaid Markdown file with a main flow plus detailed stage subflows, its matching HTML export, and one CodeTour JSON."
+  short_description: "Map feature diffs into one detailed Mermaid and CodeTour"
+  default_prompt: "Use $feature-code-tour to compare commits and generate one natural-language Mermaid Markdown file with a main flow plus detailed stage subflows and one CodeTour JSON."
