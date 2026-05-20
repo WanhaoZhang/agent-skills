@@ -1,6 +1,6 @@
 ---
 name: feature-code-tour
-description: Generate implementation-path documentation for a code feature from git diffs, commit comparisons, and local source inspection. Use when the user asks to compare commits, explain how a newly implemented feature works, draw clickable Mermaid diagrams for code execution flow, create a natural-language Mermaid walkthrough, generate CodeTour JSON, or says things like "把这个新功能实现的代码实现画个 mermaid", "梳理这个功能的执行路径", "生成 codetour", or "对比 commit 看这块怎么接上的".
+description: Generate natural-language implementation-path documentation for a code feature from git diffs, commit comparisons, and local source inspection. Use when the user asks to compare commits, explain how a newly implemented feature works, draw detailed clickable Mermaid execution diagrams, create a natural-language Mermaid walkthrough, generate CodeTour JSON, or says things like "把这个新功能实现的代码实现画个 mermaid", "梳理这个功能的执行路径", "生成 codetour", or "对比 commit 看这块怎么接上的".
 ---
 
 # Feature Code Tour
@@ -9,14 +9,24 @@ description: Generate implementation-path documentation for a code feature from 
 
 Create a reusable implementation walkthrough from real code, not a guessed architecture diagram. The expected output is usually:
 
-- A main clickable Mermaid flowchart that shows the end-to-end stages first.
-- One clickable Mermaid subflowchart per stage, with code-level details.
-- Optional natural-language clickable Mermaid flowcharts when helpful for reviewers.
-- Matching HTML files exported from every Mermaid Markdown file.
-- A CodeTour `.tour` JSON file.
+- One natural-language Mermaid Markdown file containing:
+  - A main clickable flowchart that shows the end-to-end stages first.
+  - One detailed clickable subflowchart per stage in the same Markdown file.
+- One same-basename HTML export for that Mermaid Markdown file.
+- One CodeTour `.tour` JSON file.
 - Optional short report files when the user asks for deeper explanation.
 
 Prefer repo-local output under `.tour/` unless the user asks for another location.
+
+Use generated-by naming for required artifacts:
+
+```text
+.tour/codex-gpt5.5-YYYYMMDD-<feature>_mermaid.md
+.tour/codex-gpt5.5-YYYYMMDD-<feature>_mermaid.html
+.tour/codex-gpt5.5-YYYYMMDD-<feature>_codetour.tour
+```
+
+Replace `YYYYMMDD` with the actual generation date. Keep `<feature>` short, lowercase, and readable.
 
 ## Workflow
 
@@ -29,43 +39,48 @@ Prefer repo-local output under `.tour/` unless the user asks for another locatio
    - Start from user-facing entry points, tests, or examples.
    - Follow the call chain through dispatch, matching/lowering, codegen/template, runtime wrapper, kernel/runtime, and output.
    - Use `rg` first for symbols and `sed -n`/`nl -ba` for local context.
-   - Record concrete file paths and line numbers for every diagram node.
+   - Record what each stage does, what it consumes, what it produces, and the concrete file paths and line numbers that prove it.
 
-3. Build the main Mermaid flowchart first.
-   - Name it `.tour/<feature>_main_flow_mermaid.md`.
-   - Show only the major execution stages, such as entry, lowering, match, codegen, wrapper, runtime, and output.
+3. Build the single natural-language Mermaid Markdown file.
+   - Name it `.tour/codex-gpt5.5-YYYYMMDD-<feature>_mermaid.md`.
+   - Start with a short title and generated-by line.
+   - First include the main flowchart. Show only the major execution stages, such as entry, validation, user callback tracing, lowering, backend selection, template/code generation, runtime wrapper, kernel/runtime, backward, and output.
    - Use one node per stage unless a branch changes the overall path.
-   - Add `click NODE "vscode://file/<absolute-path>:<line>:1"` to stage nodes that have a representative source location.
-   - Keep this diagram short enough to orient a reviewer before they open the detailed stage diagrams.
+   - Node text must primarily explain the behavior in plain language; put function names and locations on a secondary line.
+   - Add `click NODE "vscode://file/<absolute-path>:<line>:1"` to every node with a source location.
+   - Keep this first diagram short enough to orient a reviewer before the detailed stage diagrams.
 
-4. Build one Mermaid subflowchart per stage.
-   - Name files `.tour/<feature>_<stage>_flow_mermaid.md`.
+4. Add detailed stage subflowcharts in the same Markdown file.
+   - Add a `## <stage name>` heading before each stage subflowchart.
    - Each subflowchart should expand exactly one main-flow stage.
-   - Use subgraphs for layers such as entry, lowering, match, codegen, wrapper, runtime, and output.
-   - Node text should name the function or object and include the local code location.
-   - Add `click NODE "vscode://file/<absolute-path>:<line>:1"` for every code node.
+   - Each node must say what happens, why it matters, and what data/control object moves forward.
+   - Code symbols belong in the second line of the node label, not as the whole node label.
+   - Include branch conditions, fallback paths, generated artifacts, cached data, and output tensors/objects when relevant.
+   - Add `click NODE "vscode://file/<absolute-path>:<line>:1"` for every source-backed node.
    - Label branch edges with `yes`/`no`; make fallback branches explicit terminal nodes when not expanded.
    - Preserve the same stage node id prefix used in the main flow when practical, so readers can map overview nodes to detail diagrams.
 
-5. Build natural-language Mermaid only when it adds value.
-   - Reuse the same node ids and click links where possible.
-   - Replace function-heavy labels with what each step does, its input, and its output.
-   - Keep it readable for a human reviewer who has not read the code.
+5. Make the Mermaid visually tidy.
+   - Prefer `flowchart TD` for execution chains and `flowchart LR` for compact handoffs.
+   - Use stable stage prefixes such as `API_`, `HOP_`, `LOWER_`, `TEMPLATE_`, `RUNTIME_`, `BWD_`.
+   - Use `classDef` and `class` lines for stage roles such as entry, transform, decision, backend, output, and fallback.
+   - Keep labels concise but explanatory; split long text with `<br/>`.
+   - Follow the `beautiful-mermaid` spirit: restrained colors, clear grouping, readable spacing, and no decorative clutter.
 
-6. Export matching HTML for every Mermaid Markdown file.
+6. Export matching HTML for the Mermaid Markdown file.
    - Use the bundled exporter:
 
 ```bash
 python3 .agents/skills/feature-code-tour/scripts/export_mermaid_html.py .tour
 ```
 
-   - The exporter creates a same-basename `.html` file next to each `*_mermaid.md` file.
+   - The exporter creates the same-basename `.html` file next to `codex-gpt5.5-YYYYMMDD-<feature>_mermaid.md`.
    - If the skill is installed at another path, run the script from that installed skill directory instead.
 
 7. Build the CodeTour JSON.
-   - Use `.tour/<feature>_execution_hierarchy.tour`.
+   - Use `.tour/codex-gpt5.5-YYYYMMDD-<feature>_codetour.tour`.
    - Keep steps in execution order.
-   - Each step should contain a relative `file`, 1-based `line`, and a short description.
+   - Each step should contain a relative `file`, 1-based `line`, and a short natural-language description of what that code does in the feature path.
 
 8. Validate artifacts.
    - Run the bundled checker:

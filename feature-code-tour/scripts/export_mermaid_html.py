@@ -40,7 +40,8 @@ HTML_TEMPLATE = """<!doctype html>
       border-radius: 8px;
     }}
     pre.mermaid {{
-      background: color-mix(in srgb, Canvas 94%, CanvasText);
+      background: color-mix(in srgb, Canvas 96%, #4b83c0);
+      box-shadow: 0 10px 30px color-mix(in srgb, CanvasText 8%, transparent);
     }}
     code {{
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -51,7 +52,28 @@ HTML_TEMPLATE = """<!doctype html>
   </style>
   <script type="module">
     import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
-    mermaid.initialize({{ startOnLoad: true, securityLevel: "loose" }});
+    mermaid.initialize({{
+      startOnLoad: true,
+      securityLevel: "loose",
+      theme: "base",
+      flowchart: {{
+        curve: "basis",
+        padding: 18,
+        nodeSpacing: 46,
+        rankSpacing: 58
+      }},
+      themeVariables: {{
+        background: "transparent",
+        primaryColor: "#eef6ff",
+        primaryTextColor: "#172033",
+        primaryBorderColor: "#4b83c0",
+        lineColor: "#64748b",
+        secondaryColor: "#f7f2ff",
+        tertiaryColor: "#ecf8f0",
+        fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+        fontSize: "15px"
+      }}
+    }});
   </script>
 </head>
 <body>
