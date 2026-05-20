@@ -1,0 +1,4 @@
+interface:
+  display_name: "Feature Code Tour"
+  short_description: "Map feature diffs into staged tours, Mermaid, and HTML"
+  default_prompt: "Use $feature-code-tour to compare commits and generate a main Mermaid flow, per-stage Mermaid subflows, matching HTML exports, and a CodeTour walkthrough."
